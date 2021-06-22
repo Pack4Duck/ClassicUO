@@ -60,8 +60,8 @@ namespace ClassicUO.Game.GameObjects
 
             DrawTransparent = false;
 
-            posX += (int) Offset.X;
-            posY += (int) (Offset.Y + Offset.Z);
+            posX += (int)Offset.X;
+            posY += (int)(Offset.Y + Offset.Z);
 
             if (ItemData.IsTranslucent)
             {
@@ -226,14 +226,14 @@ namespace ClassicUO.Game.GameObjects
             posX += 22;
             posY += 22;
 
-            byte direction = (byte) ((byte) Layer & 0x7F & 7);
+            byte direction = (byte)((byte)Layer & 0x7F & 7);
             AnimationsLoader.Instance.GetAnimDirection(ref direction, ref IsFlipped);
 
-            byte animIndex = (byte) AnimIndex;
+            byte animIndex = (byte)AnimIndex;
             ushort graphic = GetGraphicForAnimation();
-            AnimationsLoader.Instance.ConvertBodyIfNeeded(ref graphic);
+            ushort hue = Hue;
+            AnimationsLoader.Instance.FixAnimationGraphicAndHue(ref graphic, ref hue, true, false, false, out bool isUop);
             byte group = AnimationsLoader.Instance.GetDieGroupIndex(graphic, UsedLayer);
-
             bool ishuman = MathHelper.InRange(Amount, 0x0190, 0x0193) || MathHelper.InRange(Amount, 0x00B7, 0x00BA) || MathHelper.InRange(Amount, 0x025D, 0x0260) || MathHelper.InRange(Amount, 0x029A, 0x029B) || MathHelper.InRange(Amount, 0x02B6, 0x02B7) || Amount == 0x03DB || Amount == 0x03DF || Amount == 0x03E2 || Amount == 0x02E8 || Amount == 0x02E9;
 
             DrawLayer
@@ -245,7 +245,7 @@ namespace ClassicUO.Game.GameObjects
                 Layer.Invalid,
                 animIndex,
                 ishuman,
-                Hue,
+                hue,
                 IsFlipped,
                 hueVec.Z,
                 group,
@@ -253,26 +253,29 @@ namespace ClassicUO.Game.GameObjects
                 ref hueVec
             );
 
-            for (int i = 0; i < Constants.USED_LAYER_COUNT; i++)
+            if (!IsEmpty)
             {
-                Layer layer = LayerOrder.UsedLayers[direction, i];
+                for (int i = 0; i < Constants.USED_LAYER_COUNT; i++)
+                {
+                    Layer layer = LayerOrder.UsedLayers[direction, i];
 
-                DrawLayer
-                (
-                    batcher,
-                    posX,
-                    posY,
-                    this,
-                    layer,
-                    animIndex,
-                    ishuman,
-                    0,
-                    IsFlipped,
-                    hueVec.Z,
-                    group,
-                    direction,
-                    ref hueVec
-                );
+                    DrawLayer
+                    (
+                        batcher,
+                        posX,
+                        posY,
+                        this,
+                        layer,
+                        animIndex,
+                        ishuman,
+                        0,
+                        IsFlipped,
+                        hueVec.Z,
+                        group,
+                        direction,
+                        ref hueVec
+                    );
+                }
             }
 
             return true;
@@ -334,120 +337,100 @@ namespace ClassicUO.Game.GameObjects
 
             ushort newHue = 0;
 
-            AnimationGroup gr = layer == Layer.Invalid ? AnimationsLoader.Instance.GetCorpseAnimationGroup(ref graphic, ref animGroup, ref newHue) : AnimationsLoader.Instance.GetBodyAnimationGroup(ref graphic, ref animGroup, ref newHue);
+            AnimationFrameTexture frame = layer == Layer.Invalid ?
+                AnimationsLoader.Instance.GetCorpseFrame(ref graphic, ref newHue, animGroup, dir, animIndex) :
+                AnimationsLoader.Instance.GetBodyFrame(ref graphic, ref newHue, animGroup, dir, animIndex, false);
+
 
             if (color == 0)
             {
                 color = newHue;
             }
 
-            AnimationDirection direction = gr.Direction[dir];
-
-            if (direction == null)
+            if (frame == null || frame.IsDisposed)
             {
                 return;
             }
 
-            if ((direction.FrameCount == 0 || direction.Frames == null) && !AnimationsLoader.Instance.LoadAnimationFrames(graphic, animGroup, dir, ref direction))
+            frame.Ticks = Time.Ticks;
+
+            if (flipped)
+            {
+                posX -= frame.Width - frame.CenterX;
+            }
+            else
+            {
+                posX -= frame.CenterX;
+            }
+
+            posY -= frame.Height + frame.CenterY;
+
+
+            if (color == 0)
+            {
+                if ((color & 0x8000) != 0)
+                {
+                    ispartialhue = true;
+                    color &= 0x7FFF;
+                }
+
+                if (color == 0 && _equipConvData.HasValue)
+                {
+                    color = _equipConvData.Value.Color;
+                    ispartialhue = false;
+                }
+            }
+
+            hueVec = Vector3.Zero;
+
+            if (ProfileManager.CurrentProfile.NoColorObjectsOutOfRange && owner.Distance > World.ClientViewRange)
+            {
+                hueVec.X = Constants.OUT_RANGE_COLOR;
+                hueVec.Y = 1;
+            }
+            else if (World.Player.IsDead && ProfileManager.CurrentProfile.EnableBlackWhiteEffect)
+            {
+                hueVec.X = Constants.DEAD_RANGE_COLOR;
+                hueVec.Y = 1;
+            }
+            else
+            {
+                if (ProfileManager.CurrentProfile.GridLootType > 0 && SelectedObject.CorpseObject == owner)
+                {
+                    color = 0x0034;
+                }
+                else if (ProfileManager.CurrentProfile.HighlightGameObjects && ReferenceEquals(SelectedObject.LastObject, owner))
+                {
+                    color = Constants.HIGHLIGHT_CURRENT_OBJECT_HUE;
+                }
+
+                ShaderHueTranslator.GetHueVector(ref hueVec, color, ispartialhue, alpha);
+            }
+
+            batcher.DrawSprite
+            (
+                frame,
+                posX,
+                posY,
+                flipped,
+                ref hueVec
+            );
+
+            if (!SerialHelper.IsValid(owner))
             {
                 return;
             }
 
-            direction.LastAccessTime = Time.Ticks;
-            int fc = direction.FrameCount;
-
-            if (fc > 0 && animIndex >= fc)
+            if (ReferenceEquals(SelectedObject.Object, owner))
             {
-                animIndex = (byte) (fc - 1);
+                return;
             }
 
-            if (animIndex < direction.FrameCount)
+            ref AnimationEntry entry = ref AnimationsLoader.Instance.GetAnimationEntry(graphic);
+
+            if (AnimationsLoader.Instance.PixelCheck(graphic, animGroup, dir, entry.IsUOP, animIndex, flipped ? posX + frame.Width - SelectedObject.TranslatedMousePositionByViewport.X : SelectedObject.TranslatedMousePositionByViewport.X - posX, SelectedObject.TranslatedMousePositionByViewport.Y - posY))
             {
-                AnimationFrameTexture frame = direction.Frames[animIndex];
-
-                if (frame == null || frame.IsDisposed)
-                {
-                    return;
-                }
-
-                frame.Ticks = Time.Ticks;
-
-                if (flipped)
-                {
-                    posX -= frame.Width - frame.CenterX;
-                }
-                else
-                {
-                    posX -= frame.CenterX;
-                }
-
-                posY -= frame.Height + frame.CenterY;
-
-
-                if (color == 0)
-                {
-                    if ((color & 0x8000) != 0)
-                    {
-                        ispartialhue = true;
-                        color &= 0x7FFF;
-                    }
-
-                    if (color == 0 && _equipConvData.HasValue)
-                    {
-                        color = _equipConvData.Value.Color;
-                        ispartialhue = false;
-                    }
-                }
-
-                hueVec = Vector3.Zero;
-
-                if (ProfileManager.CurrentProfile.NoColorObjectsOutOfRange && owner.Distance > World.ClientViewRange)
-                {
-                    hueVec.X = Constants.OUT_RANGE_COLOR;
-                    hueVec.Y = 1;
-                }
-                else if (World.Player.IsDead && ProfileManager.CurrentProfile.EnableBlackWhiteEffect)
-                {
-                    hueVec.X = Constants.DEAD_RANGE_COLOR;
-                    hueVec.Y = 1;
-                }
-                else
-                {
-                    if (ProfileManager.CurrentProfile.GridLootType > 0 && SelectedObject.CorpseObject == owner)
-                    {
-                        color = 0x0034;
-                    }
-                    else if (ProfileManager.CurrentProfile.HighlightGameObjects && ReferenceEquals(SelectedObject.LastObject, owner))
-                    {
-                        color = Constants.HIGHLIGHT_CURRENT_OBJECT_HUE;
-                    }
-
-                    ShaderHueTranslator.GetHueVector(ref hueVec, color, ispartialhue, alpha);
-                }
-
-                batcher.DrawSprite
-                (
-                    frame,
-                    posX,
-                    posY,
-                    flipped,
-                    ref hueVec
-                );
-
-                if (!SerialHelper.IsValid(owner))
-                {
-                    return;
-                }
-
-                if (ReferenceEquals(SelectedObject.Object, owner))
-                {
-                    return;
-                }
-
-                if (AnimationsLoader.Instance.PixelCheck(graphic, animGroup, dir, direction.IsUOP, animIndex, flipped ? posX + frame.Width - SelectedObject.TranslatedMousePositionByViewport.X : SelectedObject.TranslatedMousePositionByViewport.X - posX, SelectedObject.TranslatedMousePositionByViewport.Y - posY))
-                {
-                    SelectedObject.Object = owner;
-                }
+                SelectedObject.Object = owner;
             }
         }
     }

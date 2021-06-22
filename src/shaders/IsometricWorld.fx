@@ -79,10 +79,10 @@ float3 get_colored_light(float shader, float gray)
 PS_INPUT VertexShaderFunction(VS_INPUT IN)
 {
 	PS_INPUT OUT;
-	
+
 	OUT.Position = mul(mul(IN.Position, WorldMatrix), MatrixTransform);
-	
-	OUT.TexCoord = IN.TexCoord; 
+
+	OUT.TexCoord = IN.TexCoord;
 	OUT.Normal = IN.Normal;
 	OUT.Hue = IN.Hue;
 	
@@ -90,9 +90,9 @@ PS_INPUT VertexShaderFunction(VS_INPUT IN)
 }
 
 float4 PixelShader_Hue(PS_INPUT IN) : COLOR0
-{	
+{
 	float4 color = tex2D(DrawSampler, IN.TexCoord);
-		
+
 	if (color.a == 0.0f)
 		discard;
 
@@ -185,4 +185,3 @@ technique HueTechnique
 		PixelShader = compile ps_3_0 PixelShader_Hue();
 	}
 }
-

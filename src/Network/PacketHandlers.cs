@@ -83,7 +83,7 @@ namespace ClassicUO.Network
 
             if (bufferReader != null)
             {
-                StackDataReader buffer = new StackDataReader(data, length);
+                StackDataReader buffer = new StackDataReader(data.AsSpan().Slice(0, length));
                 buffer.Seek(offset);
 
                 bufferReader(ref buffer);
@@ -2318,12 +2318,11 @@ namespace ClassicUO.Network
                 Mobile.GetReplacedObjectAnimation(mobile.Graphic, action),
                 delay,
                 (byte) frame_count,
-                (byte) repeat_count,
+                repeat_count,
                 repeat,
-                forward
+                forward,
+                true
             );
-
-            mobile.AnimationFromServer = true;
         }
 
         private static void GraphicEffect(ref StackDataReader p)
@@ -4350,8 +4349,7 @@ namespace ClassicUO.Network
                                 break;
                             }
 
-                            bool dead = p.ReadBool();
-                            bonded.IsDead = dead;
+                            bonded.IsDead = p.ReadBool();
 
                             break;
 
@@ -4393,9 +4391,9 @@ namespace ClassicUO.Network
 
                                 if (mobile != null)
                                 {
-                                    // TODO: animation for statues
-                                    //mobile.SetAnimation(Mobile.GetReplacedObjectAnimation(mobile.Graphic, animation), 0, (byte) frame, 0, false, false);
-                                    //mobile.AnimationFromServer = true;
+                                    mobile.SetAnimation(Mobile.GetReplacedObjectAnimation(mobile.Graphic, animation));
+                                    mobile.ExecuteAnimation = false;
+                                    mobile.AnimIndex = (byte) frame;
                                 }
                             }
                             else if (World.Player != null && serial == World.Player)
@@ -4609,23 +4607,17 @@ namespace ClassicUO.Network
                     byte animID = p.ReadUInt8();
                     byte frameCount = p.ReadUInt8();
 
-                    //foreach (Mobile m in World.Mobiles)
-                    //{
-                    //    if ((m.Serial & 0xFFFF) == serial)
-                    //    {
-                    //       // byte group = Mobile.GetObjectNewAnimation(m, animID, action, mode);
-                    //        m.SetAnimation(animID);
-                    //        //m.AnimationRepeatMode = 1;
-                    //        //m.AnimationForwardDirection = true;
-                    //        //if ((type == 1 || type == 2) && mobile.Graphic == 0x0015)
-                    //        //    mobile.AnimationRepeat = true;
-                    //        //mobile.AnimationFromServer = true;
+                    foreach (Mobile m in World.Mobiles.Values)
+                    {
+                        if ((m.Serial & 0xFFFF) == serial)
+                        {
+                            m.SetAnimation(animID);
+                            m.AnimIndex = frameCount;
+                            m.ExecuteAnimation = false;
 
-                    //        //m.SetAnimation(Mobile.GetReplacedObjectAnimation(m.Graphic, animID), 0, frameCount);
-                    //       // m.AnimationFromServer = true;
-                    //        break;
-                    //    }
-                    //}
+                            break;
+                        }
+                    }
 
                     break;
 
@@ -4957,12 +4949,13 @@ namespace ClassicUO.Network
         {
             //byte* decompressedBytes = stackalloc byte[dlen];
             bool ismovable = item.ItemData.IsMultiMovable;
-
-            byte[] decompressedBytes = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen);
+            
+            byte[] buffer = null;
+            Span<byte> span = dlen <= 1024 ? stackalloc byte[dlen] : (buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen));
 
             try
             {
-                fixed (byte* dbytesPtr = decompressedBytes)
+                fixed (byte* dbytesPtr = span)
                 {
                     fixed (byte* srcPtr = &source[sourcePosition])
                     {
@@ -4976,7 +4969,7 @@ namespace ClassicUO.Network
                         );
                     }
 
-                    StackDataReader reader = new StackDataReader(dbytesPtr, dlen);
+                    StackDataReader reader = new StackDataReader(span);
 
                     ushort id = 0;
                     sbyte x = 0, y = 0, z = 0;
@@ -5109,7 +5102,10 @@ namespace ClassicUO.Network
             }
             finally
             {
-                System.Buffers.ArrayPool<byte>.Shared.Return(decompressedBytes);
+                if (buffer != null)
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
         }
 
@@ -5456,16 +5452,8 @@ namespace ClassicUO.Network
             ushort action = p.ReadUInt16BE();
             byte mode = p.ReadUInt8();
             byte group = Mobile.GetObjectNewAnimation(mobile, type, action, mode);
-            mobile.SetAnimation(group);
-            mobile.AnimationRepeatMode = 1;
-            mobile.AnimationForwardDirection = true;
 
-            if ((type == 1 || type == 2) && mobile.Graphic == 0x0015)
-            {
-                mobile.AnimationRepeat = true;
-            }
-
-            mobile.AnimationFromServer = true;
+            mobile.SetAnimation(group, repeatCount: 1, repeat: (type == 1 || type == 2) && mobile.Graphic == 0x0015, forward: true, fromServer: true);
         }
 
         private static void KREncryptionResponse(ref StackDataReader p)

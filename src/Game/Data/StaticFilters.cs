@@ -249,7 +249,7 @@ namespace ClassicUO.Game.Data
                 }
             }
 
-            ArtLoader.Instance.CleaUnusedResources(short.MaxValue);
+            ArtLoader.Instance.ClearUnusedResources(short.MaxValue);
         }
 
         public static void CleanTreeTextures()
@@ -264,7 +264,7 @@ namespace ClassicUO.Game.Data
                 }
             }
 
-            ArtLoader.Instance.CleaUnusedResources(short.MaxValue);
+            ArtLoader.Instance.ClearUnusedResources(short.MaxValue);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
