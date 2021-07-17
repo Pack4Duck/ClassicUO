@@ -1453,4 +1453,13 @@ Client version: '{0}'</value>
   <data name="IgnoreAllianceMessages" xml:space="preserve">
     <value>Hide alliance chat</value>
   </data>
+  <data name="OpenUIManager" xml:space="preserve">
+    <value>Open UI Manager</value>
+  </data>
+  <data name="UIManagerGumpName" xml:space="preserve">
+    <value>Gump Name</value>
+  </data>
+  <data name="UIManegerGumpReset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
 </root>

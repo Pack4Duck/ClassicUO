@@ -2477,6 +2477,15 @@ namespace ClassicUO.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Open UI Manager.
+        /// </summary>
+        public static string OpenUIManager {
+            get {
+                return ResourceManager.GetString("OpenUIManager", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to &lt;out of range&gt;.
         /// </summary>
         public static string OutOfRange {
@@ -3773,6 +3782,24 @@ namespace ClassicUO.Resources {
         public static string TreesStumps {
             get {
                 return ResourceManager.GetString("TreesStumps", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Gump Name.
+        /// </summary>
+        public static string UIManagerGumpName {
+            get {
+                return ResourceManager.GetString("UIManagerGumpName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reset.
+        /// </summary>
+        public static string UIManegerGumpReset {
+            get {
+                return ResourceManager.GetString("UIManegerGumpReset", resourceCulture);
             }
         }
         

@@ -100,6 +100,7 @@ namespace ClassicUO.Game.UI.Gumps
         protected string _name;
         protected bool _outOfRange;
         protected StbTextBox _textBox;
+        public string Name => _name;
 
         protected abstract void BuildGump();
 

@@ -44,7 +44,9 @@ namespace ClassicUO.Game.UI.Gumps
     {
         NONE,
         SPELL,
-        HEALTHBAR
+        HEALTHBAR,
+        SKILL,
+        MACRO
     }
 
     internal abstract class AnchorableGump : Gump

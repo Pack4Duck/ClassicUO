@@ -3311,6 +3311,23 @@ namespace ClassicUO.Game.UI.Gumps
             button.MouseUp += (sender, e) => { ContainerManager.BuildContainerFile(true); };
             rightArea.Add(button);
 
+            var openUiManagerGump = new NiceButton
+            (
+                startX + button.Width + 20, startY, 130, 30,
+                ButtonAction.Activate, ResGumps.OpenUIManager
+            )
+            {
+                ButtonParameter = -1,
+                IsSelectable = true,
+                IsSelected = true
+            };
+
+            openUiManagerGump.MouseUp += (sender, e) =>
+            {
+                UIManager.Add(new UiManagerGump());
+            };
+            rightArea.Add(openUiManagerGump);
+
             Add(rightArea, PAGE);
         }
 

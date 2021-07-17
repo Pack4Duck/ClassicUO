@@ -64,10 +64,10 @@ namespace ClassicUO.Game.UI.Gumps
             HeightMultiplier = 1;
             GroupMatrixWidth = 44;
             GroupMatrixHeight = 44;
-            AnchorType = ANCHOR_TYPE.SPELL;
+            AnchorType = ANCHOR_TYPE.SKILL;
         }
 
-
+        public string SkillName => _skill.Name;
         public override GumpType GumpType => GumpType.SkillButton;
 
         public int SkillID => _skill.Index;
